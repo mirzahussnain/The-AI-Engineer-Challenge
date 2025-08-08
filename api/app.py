@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 # Import Pydantic for data validation and settings management
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 # Import OpenAI client for interacting with OpenAI's API
 from openai import OpenAI
 import os
@@ -33,18 +33,22 @@ class ChatRequest(BaseModel):
     openrouter_api_key: Optional[str] = None # OpenRouter API key
     openrouter_model: Optional[str] = "openai/gpt-3.5-turbo" # Default OpenRouter model
 
-    @validator('provider')
+    @field_validator('provider')
+    @classmethod
     def validate_provider(cls, v):
         if v not in ['openai', 'openrouter']:
             raise ValueError('Provider must be either "openai" or "openrouter"')
         return v
 
-    @validator('api_key', 'openrouter_api_key', always=True)
-    def validate_api_keys(cls, v, values, field):
-        provider = values.get('provider', 'openai')
-        if field.name == 'api_key' and provider == 'openai' and not v:
+    @field_validator('api_key', 'openrouter_api_key')
+    @classmethod
+    def validate_api_keys(cls, v, info):
+        provider = info.data.get('provider', 'openai')
+        field_name = info.field_name
+        
+        if field_name == 'api_key' and provider == 'openai' and not v:
             raise ValueError('OpenAI API key is required when provider is "openai"')
-        if field.name == 'openrouter_api_key' and provider == 'openrouter' and not v:
+        if field_name == 'openrouter_api_key' and provider == 'openrouter' and not v:
             raise ValueError('OpenRouter API key is required when provider is "openrouter"')
         return v
 
